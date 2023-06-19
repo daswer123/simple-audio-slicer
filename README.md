@@ -12,7 +12,7 @@ This uses ffmpeg if you don't have it, the program will automatically install it
 
 If you do not specify an output folder, it will create an out folder inside the source folder
 
-![image](https://github.com/daswer123/simple-audio-cutter/assets/22278673/f074468a-a13a-4b10-b7a1-3365648afd7a)
+![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/a9d28abb-40c5-4e95-b280-4da9b7f57844)
 
 **Fade in/out** 
 
