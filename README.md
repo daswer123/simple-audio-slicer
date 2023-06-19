@@ -1,4 +1,4 @@
-# simple-audio-cutter
+# simple-audio-slicer
 Easy audio slicing solution for preparing a dataset for RVC or So-VITS-SVC
 The essence of the program is that you specify a folder with audio files in any format (mp3, wav, flac) and convert them to multiple files with the chunk you specify.
 This program uses multithreading, so it should greatly speed up the slicing of large datasets.
