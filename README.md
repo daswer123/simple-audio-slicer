@@ -9,6 +9,7 @@ This program uses multithreading, so it should greatly speed up the slicing of l
 3) Launch `run.bat`
 
 This uses ffmpeg if you don't have it, the program will automatically install it in the program folder
+
 If you do not specify an output folder, it will create an out folder inside the source folder
 
 ![image](https://github.com/daswer123/simple-audio-cutter/assets/22278673/853039e4-bb68-4747-9cfb-621f33fa629e)
