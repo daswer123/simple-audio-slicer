@@ -21,3 +21,8 @@ Makes a fade in and fade out effect on all output chunks
 **Normalize**
 
 Normalizes all output chunks
+
+# Demo
+
+https://github.com/daswer123/simple-audio-slicer/assets/22278673/1df1c3fc-4eb8-4342-a694-20c83affa96c
+
