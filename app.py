@@ -59,6 +59,15 @@ class AudioCutterGUI:
         self.start_button = tk.Button(master, text="Start", command=self.start_cutting_thread)
         self.start_button.grid(row=6, column=0, columnspan=3)
 
+        # Добавьте флажки для опций нормализации и затухания звука
+        self.normalize_var = tk.BooleanVar()
+        self.normalize_check = tk.Checkbutton(master, text="Normalize audio", variable=self.normalize_var)
+        self.normalize_check.grid(row=4, column=0, columnspan=1)
+
+        self.fade_var = tk.BooleanVar()
+        self.fade_check = tk.Checkbutton(master, text="Fade in/out", variable=self.fade_var)
+        self.fade_check.grid(row=4, column=1, columnspan=2)
+
     async def process_file(self, input_folder, output_folder, output_format):
         while not self.queue.empty():
             file = self.queue.get()
@@ -76,10 +85,16 @@ class AudioCutterGUI:
     
                     loop = asyncio.get_event_loop()
                     audio = ffmpeg.input(file_path, ss=start_time, t=self.duration)
-            
+
+                    if self.normalize_var.get():
+                        audio = audio.filter('loudnorm')
+
+                    if self.fade_var.get():
+                        audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=self.duration - 1, duration=1)
+
                     with ProcessPoolExecutor() as pool:
-                        await loop.run_in_executor(pool, audio.output(output_file_path,threads=multiprocessing.cpu_count()).run)
-    
+                        await loop.run_in_executor(pool, audio.output(output_file_path, threads=multiprocessing.cpu_count()).global_args('-y').run)
+
                     self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
             except Exception as e:
                 print(f"File processing error {file}: {e}")

@@ -27,10 +27,13 @@ if errorlevel 1 (
 )
 
 echo Running the application...
-python app.py
+start /b /wait cmd /c python app.py
+
+echo Terminating any remaining app.py processes...
+for /f "tokens=2" %%i in ('tasklist /nh /fi "imagename eq python.exe"') do taskkill /pid %%i /f >nul 2>&1
 
 echo Deactivating the virtual environment...
 call venv\Scripts\deactivate.bat
 
 echo Completion of work...
-timeout /t 3 /nobreak >nul
+timeout /t 1 /nobreak >nul
