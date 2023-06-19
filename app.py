@@ -3,12 +3,14 @@ import tkinter as tk
 import ffmpeg
 import asyncio
 import concurrent.futures
+import shutil
 import multiprocessing
 
 from tkinter import filedialog
 from queue import Queue
 from threading import Thread
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 
 class AudioCutterGUI:
@@ -25,7 +27,7 @@ class AudioCutterGUI:
         self.input_button = tk.Button(master, text="Select...", command=self.choose_input_folder)
         self.input_button.grid(row=0, column=2)
 
-        self.output_label = tk.Label(master, text="Select a folder to save: (Optional)")
+        self.output_label = tk.Label(master, text="Select a output folder: (Optional)")
         self.output_label.grid(row=1, column=0)
 
         self.output_entry = tk.Entry(master)
@@ -56,7 +58,7 @@ class AudioCutterGUI:
         self.progress_label = tk.Label(master, text="Waiting...")
         self.progress_label.grid(row=5, column=0, columnspan=3)
 
-        self.start_button = tk.Button(master, text="Start", command=self.start_cutting_thread)
+        self.start_button = tk.Button(master, text="Start", command=self.start_double_pass_thread)
         self.start_button.grid(row=6, column=0, columnspan=3)
 
         # Добавьте флажки для опций нормализации и затухания звука
@@ -68,29 +70,32 @@ class AudioCutterGUI:
         self.fade_check = tk.Checkbutton(master, text="Fade in/out", variable=self.fade_var)
         self.fade_check.grid(row=4, column=1, columnspan=2)
 
-    async def process_file(self, input_folder, output_folder, output_format):
+        # self.double_pass_button = tk.Button(master, text="Double Pass", command=self.start_double_pass_thread)
+        # self.double_pass_button.grid(row=6, column=1, columnspan=3)
+
+    async def process_file(self, input_folder, output_folder, output_format,duration):
         while not self.queue.empty():
             file = self.queue.get()
     
             file_path = os.path.join(input_folder, file)
             try:
                 audio_duration = float(ffmpeg.probe(file_path)["format"]["duration"])
-                num_cuts = int(audio_duration // self.duration)  
-                if audio_duration % self.duration > 0:
+                num_cuts = int(audio_duration // duration)  
+                if audio_duration % duration > 0:
                     num_cuts += 1
                 for i in range(num_cuts):
-                    start_time = i * self.duration
+                    start_time = i * duration
                     output_file = os.path.splitext(file)[0] + f"_cut_{i+1}.{output_format}"
                     output_file_path = os.path.join(output_folder, output_file)
     
                     loop = asyncio.get_event_loop()
-                    audio = ffmpeg.input(file_path, ss=start_time, t=self.duration)
+                    audio = ffmpeg.input(file_path, ss=start_time, t=duration)
 
                     if self.normalize_var.get():
                         audio = audio.filter('loudnorm')
 
                     if self.fade_var.get():
-                        audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=self.duration - 1, duration=1)
+                        audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=duration - 1, duration=1)
 
                     with ProcessPoolExecutor() as pool:
                         await loop.run_in_executor(pool, audio.output(output_file_path, threads=multiprocessing.cpu_count()).global_args('-y').run)
@@ -112,15 +117,49 @@ class AudioCutterGUI:
     def update_duration(self, value):
         self.duration = int(value)
 
-    def start_cutting_thread(self):
-        self.thread = Thread(target=self.start_cutting)
-        self.thread.start()
+    def start_double_pass_thread(self):
+        self.double_pass_thread = Thread(target=self.double_pass_cutting)
+        self.double_pass_thread.start()
 
-    def start_cutting(self):
-        self.progress_label.config(text="Processing...", fg="black")
+    def double_pass_cutting(self):
+        # Сохраняем текущее значение нарезки
+        original_duration = self.duration
+        original_input_folder = self.input_entry.get()
+        original_output_folder = self.output_entry.get()
+        output_format = self.format_var.get()
+
+        # Создаем временную папку
+        temp_folder = os.path.join(original_input_folder, "temp")
+        if not os.path.exists(temp_folder):
+            os.makedirs(temp_folder)
+
+        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            # Первый этап: нарезка по 1 минуте
+            first_cut_future = executor.submit(self.start_cutting, 60, original_input_folder, temp_folder, output_format)
+            first_cut_future.result()  # Ожидаем завершение первого этапа
+
+            if not original_output_folder:
+                original_output_folder = os.path.join(original_input_folder, "out")
+                os.makedirs(original_output_folder, exist_ok=True)
+
+            # Второй этап: нарезка на указанное время
+            second_cut_future = executor.submit(self.start_cutting, original_duration, temp_folder, original_output_folder, output_format)
+            second_cut_future.result()  # Ожидаем завершение второго этапа
+        
+            # Удаляем временную папку после завершения второй проходки
+            shutil.rmtree(temp_folder)
+
+
+    def start_cutting_thread(self):
+        duration = self.duration
         input_folder = self.input_entry.get()
         output_folder = self.output_entry.get()
         output_format = self.format_var.get()
+        self.thread = Thread(target=self.start_cutting, args=(duration, input_folder, output_folder, output_format))
+        self.thread.start()
+
+    def start_cutting(self, duration, input_folder, output_folder, output_format):
+        self.progress_label.config(text="Processing...", fg="black")
 
         if not output_folder:
             output_folder = os.path.join(input_folder, "out")
@@ -134,14 +173,14 @@ class AudioCutterGUI:
                 self.queue.put(file)
 
         # Запуск обработки файлов асинхронно
-        asyncio.run(self.process_files(input_folder, output_folder, output_format))
+        asyncio.run(self.process_files(input_folder, output_folder, output_format,duration))
 
-    async def process_files(self, input_folder, output_folder, output_format):
+    async def process_files(self, input_folder, output_folder, output_format,duration):
         num_threads = multiprocessing.cpu_count()  # Определение числа потоков, равного количеству ядер процессора
 
         tasks = []  # Список задач для асинхронного выполнения
         for _ in range(num_threads):
-            tasks.append(self.process_file(input_folder, output_folder, output_format))
+            tasks.append(self.process_file(input_folder, output_folder, output_format,duration))
 
         # Запуск всех задач асинхронно и ожидание их завершения
         await asyncio.gather(*tasks)
