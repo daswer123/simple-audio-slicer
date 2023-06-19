@@ -12,4 +12,12 @@ This uses ffmpeg if you don't have it, the program will automatically install it
 
 If you do not specify an output folder, it will create an out folder inside the source folder
 
-![image](https://github.com/daswer123/simple-audio-cutter/assets/22278673/853039e4-bb68-4747-9cfb-621f33fa629e)
+![image](https://github.com/daswer123/simple-audio-cutter/assets/22278673/f074468a-a13a-4b10-b7a1-3365648afd7a)
+
+**Fade in/out** 
+
+Makes a fade in and fade out effect on all output chunks
+
+**Normalize**
+
+Normalizes all output chunks
