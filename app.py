@@ -16,7 +16,7 @@ from concurrent.futures import as_completed
 class AudioCutterGUI:
     def __init__(self, master):
         self.master = master
-        master.title("Simple Audio Cutter")
+        master.title("Simple Audio Slicer")
 
         self.input_label = tk.Label(master, text="Select the folder with the audio files: (wav, mp3, flac)")
         self.input_label.grid(row=0, column=0)
