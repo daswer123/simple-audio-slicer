@@ -5,6 +5,7 @@ import asyncio
 import concurrent.futures
 import shutil
 import multiprocessing
+import time
 
 from tkinter import filedialog
 from queue import Queue
@@ -58,6 +59,9 @@ class AudioCutterGUI:
         self.progress_label = tk.Label(master, text="Waiting...")
         self.progress_label.grid(row=5, column=0, columnspan=3)
 
+        self.progress_queue = asyncio.Queue()
+        self.processed_files = 0
+
         self.start_button = tk.Button(master, text="Start", command=self.start_double_pass_thread)
         self.start_button.grid(row=6, column=0, columnspan=3)
 
@@ -67,11 +71,12 @@ class AudioCutterGUI:
         self.normalize_check.grid(row=4, column=0, columnspan=1)
 
         self.cut_large_files = tk.BooleanVar()
-        self.fade_check = tk.Checkbutton(master, text="Cut large files (> 2 min)", variable=self.cut_large_files)
-        self.fade_check.grid(row=4, column=1, columnspan=2)
+        self.cut_large_files_check = tk.Checkbutton(master, text="Cut large files (> 2 min)", variable=self.cut_large_files)
+        self.cut_large_files_check.grid(row=4, column=1, columnspan=2)
 
-        # self.double_pass_button = tk.Button(master, text="Double Pass", command=self.start_double_pass_thread)
-        # self.double_pass_button.grid(row=6, column=1, columnspan=3)
+        self.convert_mono = tk.BooleanVar()
+        self.convert_mono_check = tk.Checkbutton(master, text="Convert all files to mono", variable=self.convert_mono)
+        self.convert_mono_check.grid(row=5, column=1, columnspan=2)
 
     async def process_file(self, input_folder, output_folder, output_format, duration):
      while not self.queue.empty():
@@ -99,7 +104,7 @@ class AudioCutterGUI:
                  audio = ffmpeg.input(file_path, ss=start_time)
 
                  if duration > 0:
-                     audio = audio.output_options(t=duration)
+                     audio = ffmpeg.input(file_path, ss=start_time, t=duration)
 
                  if self.normalize_var.get():
                      audio = audio.filter('loudnorm')
@@ -108,16 +113,24 @@ class AudioCutterGUI:
                      print("slice large files")
                     #  audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=duration - 1, duration=1)
 
-                 output_args = {
-                     'threads': multiprocessing.cpu_count(),
-                     'ac': 1,
-                     'y': None
-                 }
+                 if self.convert_mono.get():
+                    output_args = {
+                        'threads': multiprocessing.cpu_count(),
+                        'ac': 1,
+                        'y': None
+                    }
+                 else:
+                     output_args = {
+                        'threads': multiprocessing.cpu_count(),
+                        'y': None
+                    }
 
                  with ProcessPoolExecutor() as pool:
                      await loop.run_in_executor(pool, audio.output(output_file_path, **output_args).run)
 
-                 self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
+                #  self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
+                 self.processed_files += 1
+                 self.progress_label.config(text=f"Processed {self.processed_files}/{self.queue.qsize() + self.processed_files} files", fg="orange")
          except Exception as e:
             print(f"File processing error {file}: {e}")
 
@@ -205,9 +218,13 @@ class AudioCutterGUI:
             tasks.append(self.process_file(input_folder, output_folder, output_format,duration))
 
         # Запуск всех задач асинхронно и ожидание их завершения
+        start_time = time.time()
         await asyncio.gather(*tasks)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
 
-        self.progress_label.config(text="Done!", fg="green")
+        self.processed_files = 0
+        self.progress_label.config(text=f"Done! Processing took {elapsed_time:.2f} seconds", fg="green")        
 
 if __name__ == "__main__":
     root = tk.Tk()
