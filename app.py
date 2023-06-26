@@ -36,10 +36,10 @@ class AudioCutterGUI:
         self.output_button = tk.Button(master, text="Select...", command=self.choose_output_folder)
         self.output_button.grid(row=1, column=2)
 
-        self.duration_label = tk.Label(master, text="Chunk duration (sec):")
+        self.duration_label = tk.Label(master, text="Chunk duration (sec): , If you set 0, you just tranfer transoform files")
         self.duration_label.grid(row=2, column=0)
 
-        self.duration_scale = tk.Scale(master, from_=1, to=60, orient=tk.HORIZONTAL, command=self.update_duration)
+        self.duration_scale = tk.Scale(master, from_=0, to=60, orient=tk.HORIZONTAL, command=self.update_duration)
         self.duration_scale.set(10)
         self.duration_scale.grid(row=2, column=1)
 
@@ -66,43 +66,60 @@ class AudioCutterGUI:
         self.normalize_check = tk.Checkbutton(master, text="Normalize audio", variable=self.normalize_var)
         self.normalize_check.grid(row=4, column=0, columnspan=1)
 
-        self.fade_var = tk.BooleanVar()
-        self.fade_check = tk.Checkbutton(master, text="Fade in/out", variable=self.fade_var)
+        self.cut_large_files = tk.BooleanVar()
+        self.fade_check = tk.Checkbutton(master, text="Cut large files (> 2 min)", variable=self.cut_large_files)
         self.fade_check.grid(row=4, column=1, columnspan=2)
 
         # self.double_pass_button = tk.Button(master, text="Double Pass", command=self.start_double_pass_thread)
         # self.double_pass_button.grid(row=6, column=1, columnspan=3)
 
-    async def process_file(self, input_folder, output_folder, output_format,duration):
-        while not self.queue.empty():
-            file = self.queue.get()
-    
-            file_path = os.path.join(input_folder, file)
-            try:
-                audio_duration = float(ffmpeg.probe(file_path)["format"]["duration"])
-                num_cuts = int(audio_duration // duration)  
-                if audio_duration % duration > 0:
-                    num_cuts += 1
-                for i in range(num_cuts):
-                    start_time = i * duration
-                    output_file = os.path.splitext(file)[0] + f"_cut_{i+1}.{output_format}"
-                    output_file_path = os.path.join(output_folder, output_file)
-    
-                    loop = asyncio.get_event_loop()
-                    audio = ffmpeg.input(file_path, ss=start_time, t=duration)
+    async def process_file(self, input_folder, output_folder, output_format, duration):
+     while not self.queue.empty():
+         file = self.queue.get()
 
-                    if self.normalize_var.get():
-                        audio = audio.filter('loudnorm')
+         file_path = os.path.join(input_folder, file)
+         try:
+             audio_duration = float(ffmpeg.probe(file_path)["format"]["duration"])
 
-                    if self.fade_var.get():
-                        audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=duration - 1, duration=1)
+             if duration == 0:
+                 num_cuts = 1
+             else:
+                 num_cuts = int(audio_duration // duration)
+                 if audio_duration % duration > 0:
+                     num_cuts += 1
 
-                    with ProcessPoolExecutor() as pool:
-                        await loop.run_in_executor(pool, audio.output(output_file_path, threads=multiprocessing.cpu_count()).global_args('-y').run)
+             for i in range(num_cuts):
+                 start_time = i * duration if duration > 0 else 0
+                 output_file = os.path.splitext(file)[0]
+                 output_file += f"_cut_{i+1}" if duration > 0 else ""
+                 output_file += f".{output_format}"
+                 output_file_path = os.path.join(output_folder, output_file)
 
-                    self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
-            except Exception as e:
-                print(f"File processing error {file}: {e}")
+                 loop = asyncio.get_event_loop()
+                 audio = ffmpeg.input(file_path, ss=start_time)
+
+                 if duration > 0:
+                     audio = audio.output_options(t=duration)
+
+                 if self.normalize_var.get():
+                     audio = audio.filter('loudnorm')
+
+                 if self.cut_large_files.get():
+                     print("slice large files")
+                    #  audio = audio.filter('afade', type='in', start_time=0, duration=1).filter('afade', type='out', start_time=duration - 1, duration=1)
+
+                 output_args = {
+                     'threads': multiprocessing.cpu_count(),
+                     'ac': 1,
+                     'y': None
+                 }
+
+                 with ProcessPoolExecutor() as pool:
+                     await loop.run_in_executor(pool, audio.output(output_file_path, **output_args).run)
+
+                 self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
+         except Exception as e:
+            print(f"File processing error {file}: {e}")
 
     def choose_input_folder(self):
         folder = filedialog.askdirectory()
@@ -135,19 +152,24 @@ class AudioCutterGUI:
 
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             # Первый этап: нарезка по 1 минуте
-            first_cut_future = executor.submit(self.start_cutting, 60, original_input_folder, temp_folder, output_format)
-            first_cut_future.result()  # Ожидаем завершение первого этапа
+            if self.cut_large_files.get():
+              first_cut_future = executor.submit(self.start_cutting, 60, original_input_folder, temp_folder, output_format)
+              first_cut_future.result()  # Ожидаем завершение первого этапа
 
             if not original_output_folder:
                 original_output_folder = os.path.join(original_input_folder, "out")
                 os.makedirs(original_output_folder, exist_ok=True)
 
             # Второй этап: нарезка на указанное время
-            second_cut_future = executor.submit(self.start_cutting, original_duration, temp_folder, original_output_folder, output_format)
-            second_cut_future.result()  # Ожидаем завершение второго этапа
+            if self.cut_large_files.get():
+                second_cut_future = executor.submit(self.start_cutting, original_duration, temp_folder, original_output_folder, output_format)
+                second_cut_future.result()  # Ожидаем завершение второго этапа
+            else: 
+                second_cut_future = executor.submit(self.start_cutting, original_duration, original_input_folder, original_output_folder, output_format)
+                second_cut_future.result()  # Ожидаем завершение второго этапа
         
-            # Удаляем временную папку после завершения второй проходки
-            shutil.rmtree(temp_folder)
+
+        shutil.rmtree(temp_folder)
 
 
     def start_cutting_thread(self):
