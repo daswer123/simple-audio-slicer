@@ -16,9 +16,7 @@ If you do not specify an output folder, it will create an out folder inside the 
 
 ![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/a9d28abb-40c5-4e95-b280-4da9b7f57844)
 
-**Fade in/out** 
-
-Makes a fade in and fade out effect on all output chunks
+**Convert audio to mono** 
 
 **Normalize**
 
