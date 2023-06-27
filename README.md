@@ -18,7 +18,7 @@ This uses ffmpeg if you don't have it, the program will automatically install it
 
 If you do not specify an output folder, it will create an out folder inside the source folder
 
-![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/a9d28abb-40c5-4e95-b280-4da9b7f57844)
+![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/684ba839-8fc7-4c84-98fd-417164972704)
 
 **Convert audio to mono** 
 
