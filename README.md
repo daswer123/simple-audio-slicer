@@ -6,10 +6,10 @@ This program uses multithreading, so it should greatly speed up the slicing of l
 Check the [video demonstration](https://github.com/daswer123/simple-audio-slicer#demo)
 
 # Setup
-# 1 - Pre-build
+## 1 - Pre-build
 1) Just dowload [exe file](https://github.com/daswer123/simple-audio-slicer/releases/download/0.5/Simple.Audio.Slicer.exe)
     
-# 2 - Manuly 
+## 2 - Manuly 
 1) Make sure you have [python](https://www.python.org/downloads/release/python-3109/)
 2) Download programm [directly](https://github.com/daswer123/simple-audio-cutter/archive/refs/heads/main.zip) or via `git clone https://github.com/daswer123/simple-audio-cutter/`
 3) Launch `run.bat`
@@ -20,11 +20,10 @@ If you do not specify an output folder, it will create an out folder inside the 
 
 ![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/684ba839-8fc7-4c84-98fd-417164972704)
 
-**Convert audio to mono** 
-
-**Normalize**
-
-Normalizes all output chunks
+# Features
+1) **Convert audio to mono**
+2) **Normalize**
+3) **Convert any audio to wav or mp3**
 
 # Demo
 
