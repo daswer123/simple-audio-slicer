@@ -6,6 +6,10 @@ This program uses multithreading, so it should greatly speed up the slicing of l
 Check the [video demonstration](https://github.com/daswer123/simple-audio-slicer#demo)
 
 # Setup
+# 1 - Pre-build
+1) Just dowload [exe file](https://github.com/daswer123/simple-audio-slicer/releases/download/0.5/Simple.Audio.Slicer.exe)
+    
+# 2 - Manuly 
 1) Make sure you have [python](https://www.python.org/downloads/release/python-3109/)
 2) Download programm [directly](https://github.com/daswer123/simple-audio-cutter/archive/refs/heads/main.zip) or via `git clone https://github.com/daswer123/simple-audio-cutter/`
 3) Launch `run.bat`
@@ -14,11 +18,9 @@ This uses ffmpeg if you don't have it, the program will automatically install it
 
 If you do not specify an output folder, it will create an out folder inside the source folder
 
-![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/a9d28abb-40c5-4e95-b280-4da9b7f57844)
+![image](https://github.com/daswer123/simple-audio-slicer/assets/22278673/684ba839-8fc7-4c84-98fd-417164972704)
 
-**Fade in/out** 
-
-Makes a fade in and fade out effect on all output chunks
+**Convert audio to mono** 
 
 **Normalize**
 
