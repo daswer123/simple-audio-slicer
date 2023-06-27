@@ -1,6 +1,5 @@
 import os
 import tkinter as tk
-import ffmpeg
 import asyncio
 import concurrent.futures
 import shutil
@@ -10,9 +9,75 @@ import time
 from tkinter import filedialog
 from queue import Queue
 from threading import Thread
-from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
+
+def download_ffmpeg():
+    import requests
+    import zipfile
+
+    url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2023-06-19-14-02/ffmpeg-N-111159-g1617d1a752-win64-lgpl-shared.zip"
+    filename = "ffmpeg.zip"
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    with open(filename, 'wb') as f:
+        f.write(response.content)
+
+    with zipfile.ZipFile(filename, 'r') as zip_ref:
+        # Извлекаем содержимое архива во временную папку
+        temp_folder = "temp_ffmpeg"
+        zip_ref.extractall(temp_folder)
+
+    os.remove(filename)
+
+    # Перемещаем содержимое папки ffmpeg-N-111159-g1617d1a752-win64-lgpl-shared в папку ffmpeg
+    source_folder = os.path.join(temp_folder, "ffmpeg-N-111159-g1617d1a752-win64-lgpl-shared")
+
+    for item in os.listdir(source_folder):
+        source = os.path.join(source_folder, item)
+        destination = os.path.join("ffmpeg", item)
+        if os.path.isdir(source):
+            if os.path.exists(destination):
+                # Если папка уже существует, объединяем содержимое
+                for subitem in os.listdir(source):
+                    os.rename(os.path.join(source, subitem), os.path.join(destination, subitem))
+            else:
+                os.rename(source, destination)
+        else:
+            os.rename(source, destination)
+
+    # Удаляем временную папку
+    shutil.rmtree(temp_folder)
+
+import subprocess
+
+def check_ffmpeg():
+    def ffmpeg_is_installed():
+        try:
+            result = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            print(result)
+            if "ffmpeg version" in result.stdout:
+                return True
+        except FileNotFoundError:
+            return False
+        return False
+
+    if not ffmpeg_is_installed():
+        print("FFmpeg not found. Checking the local installation...")
+        if os.path.exists("ffmpeg\\bin\\ffmpeg.exe"):
+            print("FFmpeg found locally.")
+        else:
+            print("Downloading and installing FFmpeg...")
+            os.makedirs("ffmpeg")
+            download_ffmpeg()
+        os.environ["PATH"] = os.path.abspath("ffmpeg\\bin") + os.pathsep + os.environ["PATH"]
+    else:
+        print("FFmpeg found.")
+
+
+import ffmpeg
 
 class AudioCutterGUI:
     def __init__(self, master):
@@ -65,7 +130,7 @@ class AudioCutterGUI:
         self.start_button = tk.Button(master, text="Start", command=self.start_double_pass_thread)
         self.start_button.grid(row=6, column=0, columnspan=3)
 
-        # Добавьте флажки для опций нормализации и затухания звука
+        # Add checkboxes for sound normalization and attenuation options
         self.normalize_var = tk.BooleanVar()
         self.normalize_check = tk.Checkbutton(master, text="Normalize audio", variable=self.normalize_var)
         self.normalize_check.grid(row=4, column=0, columnspan=1)
@@ -125,7 +190,7 @@ class AudioCutterGUI:
                         'y': None
                     }
 
-                 with ProcessPoolExecutor() as pool:
+                 with ThreadPoolExecutor() as pool:
                      await loop.run_in_executor(pool, audio.output(output_file_path, **output_args).run)
 
                 #  self.progress_label.config(text=f"Processed by {file} ({i+1}/{num_cuts})", fg="orange")
@@ -227,6 +292,7 @@ class AudioCutterGUI:
         self.progress_label.config(text=f"Done! Processing took {elapsed_time:.2f} seconds", fg="green")        
 
 if __name__ == "__main__":
+    check_ffmpeg()  
     root = tk.Tk()
     gui = AudioCutterGUI(root)
     root.mainloop()
